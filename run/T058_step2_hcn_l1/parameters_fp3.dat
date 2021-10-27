@@ -1,0 +1,102 @@
+!**********************************************************************!
+!*** PLANET INPUT INFORMATION
+!**********************************************************************!
+&INPUT_PLANET
+    NAME_PLA        = 'TIT'
+    LAT             = -58
+    NLEV            = -106
+    P_SURF          = 0.1467E+04
+    P_TOP           = 2E-3
+    PROF_T          = '../input/thermal_profile.txt'
+    NB_CLOUD        = 1
+    F_CLOUD         = 1090.0
+    PROF_HAZE       = '../input/haze_retrieved.dat' 
+    FILE_SCAT       = 'spec_moytau_1p7mbar_finmod.dat'
+    VMR_TROPO_N2    = 0.9425
+    VMR_TROPO_H2    = 0.0010
+    VMR_TROPO_AR    = 3.4d-5
+    VMR_TROPO_CH4   = 0.0565
+/
+!**********************************************************************!
+!*** COLLISIONS INPUT INFORMATION
+!**********************************************************************!
+&INPUT_COLLISION
+    FILE_N2N2       = 'N2N2_AB.DAT'
+    FILE_N2CH4      = 'N2CH4_AB.DAT'
+    FILE_CH4CH4     = 'CH4CH4_AB.DAT'
+    FILE_N2H2       = 'N2H2_AB.DAT'
+/
+!**********************************************************************!
+!*** MOLECULES INPUT INFORMATION
+!**********************************************************************!
+&INPUT_MOLECULE
+    NB_MOL          = 10
+    NAME_MOL(1,:)   = 'C2H2','1','../input/profq_C2H2_retrieved.dat'
+    NAME_MOL(2,:)   =  'HCN','1','../input/profq_HCN_retrieved.dat'
+    NAME_MOL(3,:)   = 'hcn5','1','../input/profq_hcn5_from_profq_HCN_retrieved.dat'
+    NAME_MOL(4,:)   = 'hcn3','1','../input/profq_hcn3_from_profq_HCN_retrieved.dat'
+    NAME_MOL(5,:)   = 'C3H8','1','../input/c3h8_profile.txt'
+    NAME_MOL(6,:)   = 'C2H6','1','../input/c2h6_profile.txt'
+    NAME_MOL(7,:)   = 'C4H2','1','../input/c4h2_profile.txt'
+    NAME_MOL(8,:)   = 'C3H4','1','../input/c3h4_profile.txt'
+    NAME_MOL(9,:)  =   'CO2','1','../input/co2_profile.txt'
+    NAME_MOL(10,:)  = 'C2H4','1','../input/c2h4_profile.txt'
+/
+!**********************************************************************!
+!*** OBSERVATIONS INPUT INFORMATION
+!**********************************************************************!
+&INPUT_OBSERVATIONS
+    LIMBE           = True !if there is at least one limb, it's true
+    NB_OBS          = 11
+    LOS             = 102,128,149,169,188,208,229,250,271,292,305
+    FILE_OBS        = 
+'../spectra_fp3/limb_102km.spe',
+'../spectra_fp3/limb_128km.spe',
+'../spectra_fp3/limb_149km.spe',
+'../spectra_fp3/limb_169km.spe',
+'../spectra_fp3/limb_188km.spe',
+'../spectra_fp3/limb_208km.spe',
+'../spectra_fp3/limb_229km.spe',
+'../spectra_fp3/limb_250km.spe',
+'../spectra_fp3/limb_271km.spe',
+'../spectra_fp3/limb_292km.spe',
+'../spectra_fp3/limb_305km.spe',
+/
+!**********************************************************************!
+!*** CONVOLUTION INFORMATION
+!**********************************************************************!
+&INPUT_CONVOLUTION
+    F_START         = 700.860
+    F_END           = 720.125 !717.210 !720.125
+    F_PAS           = 0.05
+    F_PAS_MULT      = 1.00
+    CONVFUNC        = 'H'
+    RAYLEIGH        = 0.5259
+    NB_WEIGHTFUNC   = 0
+    FILE_WEIGHTFUNC = 'WF.DAT'
+    FILE_NOISE      = '2000_NESR_FP3_0p5cm-1.txt'
+    NSP             = 30
+/
+!**********************************************************************!
+!*** INVERSION INPUT INFORMATION
+!**********************************************************************!
+&INPUT_INVERSION
+    NB_DF           = 1
+    DF(1,:)         = 702.00,718.25,0.50
+    NB_MOL_INV      = 2
+    NAME_MOL_INV    = 'HAZE','HCN'
+    CORR_LEN        = 1.0,1.0
+    WEI             = 0.05,0.02
+    NITER           = 3
+    IPRINT          = 0
+    NB_KERNEL       = 1
+    F_KERNEL        = 713.00
+/
+!**********************************************************************!
+!*** OUTPUT INFORMATION
+!**********************************************************************!
+&OUTPUT
+    FILE_SPEC_SYNTH = 'T058_abun_spectra.dat'
+    FILE_PROFQ      = 'T058_prof_haze_hcn.dat'
+    FILE_KERNEL     = 'T058_kernel.dat'
+/
