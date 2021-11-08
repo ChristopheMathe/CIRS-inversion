@@ -1365,15 +1365,13 @@ close(10)
 !----------------------------------------------------------------------!
 open(unit=11,file=file_kernel,status='unknown')
 do ifk = 1, nb_kernel
-    i=nint((f_kernel(ifk)-f_start)/f_pas+0.5)
-    write(11,1103) f_start+f_pas*(dfloat(i)-0.5d+00)
-    1103 format(/,20x,f10.3,' cm-1')
+    i = nint( (f_kernel(ifk) - f_start)/f_pas + 0.5 )
+    write(11,fmt='(20x,f10.3,a)')f_start+f_pas*(dfloat(i)-0.5d0), ' cm-1'
     do ik = 1, nb_mol_inv
         write(11,fmt='(28x,5(4x,a4,4x,48x))') name_mol_inv(ik)
         do j=nlay,1,-1
-            write(11,1104) 0.5*(z(j)+z(j+1)),pl(j),tl(j), &
-            ( matrix_k(ik,j,is,i)/(ap(j)-ap(j+1))/rad(is,i), is=1, nb_obs)
-            1104 format(f8.2,e13.5,f8.2,2x,*(e13.5))
+            write(11,fmt='(f8.2,e13.5,f8.2,2x,*(e13.5))')0.5*(z(j)+z(j+1)), pl(j), tl(j), &
+                          (matrix_k(ik,j,is,i)/(ap(j)-ap(j+1))/rad(is,i), is=1, nb_obs)
         enddo
     end do
 end do
@@ -1386,12 +1384,12 @@ deallocate(z, p, ap, t, pl, apl, tl, gl, qch4, tab_i, lay_min, sec, ql, pii, ti,
            dlnerrq, errq_sup, errq_inf, errt, errtb, ml, matrix_k, matrix_r, matrix_r2, rad, tab_n2n2, tab_n2ch4, &
            tab_ch4ch4, tab_n2h2, qref, n_x)
 
-!======================================================================!
-!=== END PROGRAM                                                    ===!
-!======================================================================!
+!======================================================================================================================!
+!=== END PROGRAM                                                                                                    ===!
+!======================================================================================================================!
 call cpu_time(time_end)
 time_elapsed = time_end - time_begin
-print *,'=================================================='
-print *,'Program takes :',time_elapsed,' s'
+write(*,*)'=================================================='
+write(*,*)'Program takes :',time_elapsed,' s'
 
 end program ABUNDANCE

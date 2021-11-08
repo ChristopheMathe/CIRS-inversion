@@ -54,17 +54,10 @@ do 1 l=1,nlines
         17 n1=ind
         n2=ind+nmax-1
         do 33 i=n1,n2
-!~                 if(i==4677)then
-!~                   print*,'33',tauk(i),sr,vgt(nr,i+1-ind),nr,i+1-ind
-!~                 end if
             tauk(i)=tauk(i)+sr*vgt(nr,i+1-ind)
         33 END DO
         n2=ind-nmax+1
         do 34 i=n1-1,n2,-1
-!~                 if(i==4677)then
-!~                   print*,'',n1-1,n2,ind
-!~                   print*,'34',tauk(i),sr,vgt(nr,ind+1-i)
-!~                 end if
             tauk(i)=tauk(i)+sr*vgt(nr,ind+1-i)
         34 END DO
         goto 1
