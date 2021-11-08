@@ -568,13 +568,14 @@ do is = 1, nview
     end do
 end do
 
-! Calculation of the K matrices
-write(*,*)'Calculation of the K matrices'
+! Calculation of the K matrice
+write(*,*)'Calculation of the K matrice'
 
 ! calcul de etau_k
+write(*,*)'Calcul of etau_k'
 allocate(etau_k(n_k,nview,nlay,nlay,n_sort), etau_k2(n_k,nview,nlay,nlay,n_sort))
 !allocate(dtau_k0(n_k,nview,nlay,nlay,nstep0)) ! impossible de faire dtau_k0(n_k,nview,nlay,nlay,nstep0) car trop de
-                                               ! memoire demande
+                                               ! memoire demandee
 allocate(dtau_k0(nstep0,nlay,nlay))
 etau_k(:,:,:,:,:)  = 0d0
 etau_k2(:,:,:,:,:) = 0d0
@@ -652,6 +653,7 @@ do is = 2, nview
 end do
 
 ! calcul de etau_k2
+write(*,*)'Calcul of etau_k2'
 do ik = 1, n_k
     lay_min_is = lay_min(1)
     dtau_k0(:,:,:) = 0d0
@@ -668,7 +670,7 @@ do ik = 1, n_k
         i1 = (isort-1)*navg0 + 1
         do j1 = 1, nlay
             do j2 = 1, nlay
-               etau_k2(ik,1,j1,j2,isort) = 0.5 * (dtau_k0(i1,j1,j2)+dtau_k0(i1+navg0,j1,j2))
+               etau_k2(ik,1,j1,j2,isort) = 0.5d0 * (dtau_k0(i1,j1,j2)+dtau_k0(i1+navg0,j1,j2))
                if(navg0 > 1) then
                    do i = 1, navg0-1
                        etau_k2(ik,1,j1,j2,isort) = etau_k2(ik,1,j1,j2,isort) + dtau_k0(i1+i,j1,j2)
@@ -678,7 +680,6 @@ do ik = 1, n_k
             end do
         end do
     end do
-
     do is = 2, nview
         lay_min_is = lay_min(is)
         dtau_k0(:,:,:) = 0d0
@@ -695,7 +696,7 @@ do ik = 1, n_k
             i1 = (isort-1)*navg0 + 1
             do j1 = 1, nlay
                 do j2 = 1, nlay
-                   etau_k2(ik,is,j1,j2,isort) = 0.5 * (dtau_k0(i1,j1,j2)+dtau_k0(i1+navg0,j1,j2))
+                   etau_k2(ik,is,j1,j2,isort) = 0.5d0 * (dtau_k0(i1,j1,j2)+dtau_k0(i1+navg0,j1,j2))
                    if(navg0 > 1) then
                        do i = 1, navg0-1
                            etau_k2(ik,is,j1,j2,isort) = etau_k2(ik,is,j1,j2,isort) + dtau_k0(i1+i,j1,j2)
@@ -709,7 +710,7 @@ do ik = 1, n_k
 end do
 
 ! Calcul of matrix K
-write(*,*)'Calcul matrix K'
+write(*,*)'Fill matrix K'
 do ik = 1, n_k
     do is = 1, nview
         lay_min_is = lay_min(is)

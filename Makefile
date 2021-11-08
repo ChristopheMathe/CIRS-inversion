@@ -16,7 +16,7 @@ lib = lib_functions avg conv conv_wf dat_cont det_step dtau_e dtau_h dtau_v data
 lib_o = tmp/lib_functions.o tmp/avg.o tmp/conv.o tmp/conv_wf.o tmp/dat_cont.o tmp/det_step.o \
 		tmp/dtau_e.o tmp/dtau_h.o tmp/dtau_v.o tmp/database_mol.o tmp/database_planet.o tmp/intwdl.o tmp/planck.o \
 		tmp/dplanck.o tmp/read_line2.o tmp/read_parameters.o tmp/tau_lines1.o tmp/tau_lines2.o tmp/tau_lines3.o \
-		tmp/conv_k.o tmp/avg_k.o tmp/choldc.o tmp/matrix_inv.o
+		tmp/tau_lines.o tmp/conv_k.o tmp/avg_k.o tmp/choldc.o tmp/matrix_inv.o
 #----------------------------------------------------------------------------------------------------------------------#
 #---- All: compile all programs
 #----------------------------------------------------------------------------------------------------------------------#
@@ -47,7 +47,7 @@ calcul_direct : transfer_calcul_direct $(lib)
 transac_debug : transfer_transac $(lib)
 	$(F90) -c $(libf)/transac_v4.f90
 	mv transac_v4.o tmp/
-	$(F90) $(CFLAGS) -o bin/transac_v4_debug tmp/transac_v4.o tmp/transfer_transac_v4.o $(lib_o)
+	$(F90) $(PROD) -o bin/transac_v4_debug tmp/transac_v4.o tmp/transfer_transac_v4.o $(lib_o)
 
 abundance_debug : transfer_abundance $(lib)
 	$(F90) -c $(libf)/abundances_v4.f90
@@ -125,6 +125,10 @@ read_parameters:
 	$(F90) $(PROD) -c  -fopenmp $(libf)/read_parameters.f90
 	mv read_parameters.o tmp/
 
+tau_lines:
+	$(F90) $(PROD) -c -fopenmp  $(libf)/tau_lines.f90
+	mv tau_lines.o tmp/
+
 tau_lines1:
 	$(F90) $(PROD) -c -fopenmp  $(libf)/tau_lines1.f90
 	mv tau_lines1.o tmp/
@@ -142,8 +146,8 @@ transfer_transac:
 	mv transfer_transac_v4.o tmp/
 
 transfer_abundance:
-	$(F90) $(PROD) -c -fopenmp  $(libf)/transfer_abundance_v4.f90
-	mv transfer_abundance_v4.o tmp/
+	$(F90) $(PROD) -c -fopenmp  $(libf)/transfer_abundance_v4.f90  $(libf)/tau_lines.f90
+	mv transfer_abundance_v4.o tau_lines.mod tmp/
 
 transfer_calcul_direct:
 	$(F90) $(PROD) -c -fopenmp  $(libf)/transfer_calcul_direct_v4.f90
