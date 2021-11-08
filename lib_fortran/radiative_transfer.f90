@@ -10,10 +10,9 @@ subroutine transfer_abundance(nlev, nlay, qn2, qh2, qar, pl, tl, ml, gl, qch4, q
                               res, itrans, w_in, s_in, g_in, e_in, icloud, taucl, smin, ttest, nlor, alor, glor, elor, &
                               g2lor, nvib, vib, ndeg, n_k, icorps_k, matrix_k, rad, ikh, nfcont, nond, nond_max, sig, &
                               qex, nbl_sp_max, nbl_sp, f1_cont, df_cont, iter, nfreq_inv, qref, n2n2, n2ch4, ch4ch4, &
-                              n2h2, v, corps, path_input, limbe)
+                              n2h2, v, corps, path_input, limbe, invtemp, matrix_t)
 !$ use OMP_LIB
 use lib_functions
-use tau_lines, only : get_line_absorption_cross_sections
 implicit none
 
 ! PARAMETERS
@@ -102,6 +101,7 @@ character(len=256), intent(in), dimension(nb_mol) :: corps
 !----- DOUBLE PRECISION
 double precision, intent(out), dimension(nview,nfreq_inv)          :: rad
 double precision, intent(out), dimension(n_k,nlay,nview,nfreq_inv) :: matrix_k
+double precision, intent(out), dimension(nlay,nview,nfreq_inv)     :: matrix_t
 
 !* LOCAL VARIABLES
 
@@ -173,16 +173,17 @@ double precision :: avge = 0d0
 double precision, dimension(:,:)  , allocatable :: w_out
 double precision, dimension(:,:)  , allocatable :: s_out
 double precision, dimension(:,:)  , allocatable :: e_out
-!double precision, dimension(:)    , allocatable :: s_over
 double precision :: s_over
 double precision, dimension(:)    , allocatable :: dtau                 !(nfreq)
 double precision, dimension(:)    , allocatable :: etau00               !(nfreq)
 double precision, dimension(:)    , allocatable :: dtauk                !(nfreq)
 double precision, dimension(:)    , allocatable :: detau0               !(nfreq)
 double precision, dimension(:)    , allocatable :: rad_out              !(n_sort)
+double precision, dimension(:)    , allocatable :: rad_outb              !(n_sort)
 double precision, dimension(:)    , allocatable :: tb_out               !(n_sort)
 double precision, dimension(:)    , allocatable :: f_out                !(n_sort)
 double precision, dimension(:)    , allocatable :: rad_k                !(n_sort)
+double precision, dimension(:)    , allocatable :: rad_kb               !(n_sort)
 double precision, dimension(:)    , allocatable :: pl_ground            !(n_sort)
 double precision, dimension(:)    , allocatable :: dtauk0               !(nfreq)
 double precision, dimension(:,:)  , allocatable :: vgt
@@ -196,8 +197,10 @@ double precision, dimension(:,:,:,:,:), allocatable :: etau_k               !(nl
 double precision, dimension(:,:,:,:,:), allocatable :: etau_k2              !(nlay,nlay,n_sort)
 double precision, dimension(:,:,:), allocatable :: dtau_k0              !(nlay,nlay,n_sort)
 double precision, dimension(:,:,:), allocatable :: etau_total !(nlay, nview, nfreq)
+double precision, dimension(:,:)  , allocatable :: dpl_lay              !(nlay,n_sort)
+double precision, dimension(:)    , allocatable :: dpl_ground           !(n_sort)
 
-logical, intent(in) :: limbe
+logical, intent(in) :: limbe, invtemp
 integer :: nthread, ithread, nfreq
 double precision :: z_debut, z_fin, z_tranche
 
@@ -216,12 +219,12 @@ write(*,*)"Begin transfert"
 !$OMP        freq1, freq2, nthread, nbl_sp_max, nbl_sp, nb_mol, tl, pl, mass, limbe, iter, smin, ttest, nlay, nview, &
 !$OMP        matrix_k, rad, et, icorps_k, f_mult, n2h2, ch4ch4, p, t, gl, ml, qref, lay_min, ql, ikh,&
 !$OMP        n2ch4, n2n2, df_cont, f1_cont, nlev, corps, hck296, nond, taucl, qex, sig, qn2, qar, qh2, &
-!$OMP        qch4, n_k, v, icloud, alor, g2lor, nfreq_inv, nfreq, etau_total) &
+!$OMP        qch4, n_k, v, icloud, alor, g2lor, nfreq_inv, nfreq, etau_total, invtemp, matrix_t) &
 
 !$OMP PRIVATE(etau_k, etau_k2, pl_lay, pl_ground, f1, f2, icalc, ithread, avge, s_over, x, v0, y,&
 !$OMP         rlor, fdop, f_xivib, f_xi, cloudj, f_cent, anh, acc, anc, ann, i1, fc, dtau, qa, vgt, &
 !$OMP         qh, qn, nst, nstep, nstep0, step0, navg0, hw0, stepj, navgj, cmam, h0, pj, dt, hckt, tj, detau0, &
-!$OMP         dtauk, dtauk0, n_sort1, lay_min_is, etau, etau00, &
+!$OMP         dtauk, dtauk0, n_sort1, lay_min_is, etau, etau00, dpl_lay, dpl_ground, &
 !$OMP         dtau_k, etau0_k, etau0, f, n_sort, z_tranche, z_fin, z_debut,&
 !$OMP         isort, n_nl, nlines, nvoigt, nvoigt_i, w_out, s_out, e_out, n_out, fac_cont, dtau_k0, &
 !$OMP         nfreq_cut_off, i_min, i_mid, i_max, i_line_min, i_line_max, i_line_center, cut_off, wr, sr, er, nr)
@@ -257,7 +260,7 @@ z_fin     = freq1 + (z_fin)*pas_sort
 z_tranche = (z_fin - z_debut)
 write(*,*)ithread, ' Calculation from', z_debut, ' to', z_fin, ' with ', z_tranche, ' cm-1'
 
-allocate(pl_lay(nlay,n_sort), pl_ground(n_sort))
+allocate(pl_lay(nlay,n_sort), pl_ground(n_sort), dpl_lay(nlay,n_sort), dpl_ground(n_sort))
 f1 = z_debut
 f2 = z_fin
 f = 0.5 * (f1 + f2)
@@ -568,8 +571,35 @@ do is = 1, nview
     end do
 end do
 
+! invtemp = True: calculation of the matrix_t (for temperature)
+if (invtemp) then
+    call dplanck(f1,pas_sort,n_sort,nlay,tl,t(1),dpl_lay,dpl_ground)
+    write(*,*)'Calculation of the temperature matrix'
+    do is = 1, nview
+        lay_min_is = lay_min(is)
+        do i = 1, n_sort
+            isort = n_sort1+i
+            if(limbe .and. lay_min_is > 0) then
+                do j = lay_min_is, nlay
+                    matrix_t(j,is,isort) = (etau(j+1,is,i)-etau(j,is,i)) * dpl_lay(j,i)
+                end do
+                if(lay_min(is) > 1) then
+                    do j = 1, lay_min_is-1
+                        matrix_t(j,is,isort) = 0d0
+                    end do
+                end if
+            else
+                do j=1,nlay
+                    matrix_t(j,is,isort) = (etau(j+1,is,i) - etau(j,is,i)) * dpl_lay(j,i)
+                end do
+                matrix_t(1,is,isort) = matrix_t(1,is,isort) + etau(1,is,i) * dpl_ground(i)
+            end if
+        end do
+    end do
+end if
+
 ! Calculation of the K matrice
-write(*,*)'Calculation of the K matrice'
+write(*,*)'Calculation of the K body matrice'
 
 ! calcul de etau_k
 write(*,*)'Calcul of etau_k'
@@ -829,6 +859,24 @@ do ik = 1, n_k
     end do
 end do
 deallocate(rad_k, rad_out)
+
+! invtemp = True: convolution of the matrice_t
+if (invtemp) then
+    write(*,*)'Convolution of the temperature matrices'
+    allocate(rad_kb(n_sort1),rad_outb(n_sort1))
+    do j=1,nlay
+        do is=1,nview
+            do i=1,n_sort1
+                rad_kb(i) = matrix_t(j,is,i)
+            enddo
+            call conv_k(freq1,pas_sort,n_sort1,rad_kb,iconv,res,f_out,rad_outb,nc)
+            do i=1+nc,n_sort1-nc
+                matrix_t(j,is,i)=rad_outb(i)
+            enddo
+        enddo
+    enddo
+    deallocate(rad_kb,rad_outb)
+end if
 
 ! Calculation of the weighting functions for airmass # itrans
 if(itrans > 0) then

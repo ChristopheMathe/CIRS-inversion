@@ -315,6 +315,9 @@ double precision, dimension(:,:,:), allocatable :: &
 double precision, dimension(:,:,:,:), allocatable :: &
     matrix_k !matrix for absorbers (nb_mol_inv,nlay,nb_obs,nfreq_inv)
 
+  double precision, dimension(:,:,:), allocatable :: &
+    matrix_t    !matrix for temperature (nlay,nb_obs,nfreq_inv)
+
 !----------------------------------------------------------------------!
 ! CHARACTERS
 !----------------------------------------------------------------------!
@@ -358,6 +361,7 @@ character(len=256), dimension(:), allocatable :: &
 !----------------------------------------------------------------------!
   logical :: &
     limbe     , & !if at least one limb == True
+    invtemp   , & !if we inverse temperature
     method_invert !inverse matrix C, Cholesky or Gauss method
   !====================================================================================================================!
   !=== BEGIN PROGRAM                                                                                                ===!
@@ -1103,11 +1107,12 @@ character(len=256), dimension(:), allocatable :: &
            s(nlay,nlay,nb_mol_inv), sk(nb_mol_inv,nlay,m), ssk(nb_mol_inv,m,m), sm(nlay,m), s_b(nlay,nlay), &
            ssk_b(m,m), matrix_r2(nlay,m), errt(nlay), errtb(nlay), cf(nlay,nlay), cf_b(nlay,nlay), &
            dlnerrqb(nlay,nb_mol), errqb_sup(nlay,nb_mol), errqb_inf(nlay,nb_mol), dlnerrq(nlay,nb_mol), &
-           errq_sup(nlay,nb_mol), errq_inf(nlay,nb_mol))
+           errq_sup(nlay,nb_mol), errq_inf(nlay,nb_mol), matrix_t(nlay,nb_obs, nfreq_inv))
   rad_diff(:,:)     = 0d0
   rad(:,:)          = 0d0
   matrix_k(:,:,:,:) = 0d0
   matrix_r(:,:)     = 0d0
+  matrix_t(:,:,:)   = 0d0
 
   do iter = 0, niter
     write(*,fmt='(/,30X,A,I2,A)')' ******* ITER = ', iter, ' *******'
@@ -1120,7 +1125,7 @@ character(len=256), dimension(:), allocatable :: &
                             g_input, e_input, nb_cloud, taucl, cross_section_min, temperature_test, nlor, alor, glor, &
                             elor, g2lor, nvib, vib, ndeg, nb_mol_inv, icorps_k, matrix_k, rad, ikh, nfcont, nond, &
                             nond_max, sig, qex, nbl_sp_max, nbl_sp, f1_cont, df_cont, iter, nfreq_inv, qref, tab_n2n2, &
-                            tab_n2ch4, tab_ch4ch4, tab_n2h2, v, name_mol(:,1), path_input, limbe)
+                            tab_n2ch4, tab_ch4ch4, tab_n2h2, v, name_mol(:,1), path_input, limbe, invtemp, matrix_t)
 
     !------------------------------------------------------------------!
     !--- Section 4.1: print K-matrices if iprint > 1                ---!
