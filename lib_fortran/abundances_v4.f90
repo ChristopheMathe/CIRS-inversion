@@ -1138,7 +1138,7 @@ character(len=256), dimension(:), allocatable :: &
     call transfer_abundance(nlev, nlay, vmr_tropo_n2, vmr_tropo_h2, vmr_tropo_ar, pl, tl, ml, gl, qch4, ql, p, ap, t, &
                             nb_obs, sec, lay_min, nb_mol, mass, expo_rot, et, f_start, f_end, f_pas_mult, f_pas, &
                             file_weightfunc, file_spec_synth, convfunc, rayleigh, nb_weightfunc, w_input, s_input, &
-                            g_input, e_input, nb_cloud, taucl, cross_section_min, temperature_test, nlor, alor, glor, &
+                              g_input, e_input, nb_cloud, taucl, cross_section_min, temperature_test, nlor, alor, glor, &
                             elor, g2lor, nvib, vib, ndeg, nb_mol_inv, icorps_k, matrix_k, rad, ikh, nfcont, nond, &
                             nond_max, sig, qex, nbl_sp_max, nbl_sp, f1_cont, df_cont, iter, nfreq_inv, qref, tab_n2n2, &
                             tab_n2ch4, tab_ch4ch4, tab_n2h2, v, name_mol(:,1), path_input, limbe, mode_inversion, &

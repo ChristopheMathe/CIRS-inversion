@@ -173,7 +173,8 @@ double precision :: avge = 0d0
 double precision, dimension(:,:)  , allocatable :: w_out
 double precision, dimension(:,:)  , allocatable :: s_out
 double precision, dimension(:,:)  , allocatable :: e_out
-double precision :: s_over
+!double precision :: s_over
+double precision, dimension(:), allocatable :: s_over
 double precision, dimension(:)    , allocatable :: dtau                 !(nfreq)
 double precision, dimension(:)    , allocatable :: etau00               !(nfreq)
 double precision, dimension(:)    , allocatable :: dtauk                !(nfreq)
@@ -204,7 +205,6 @@ logical, intent(in) :: limbe
 integer :: nthread, ithread, nfreq
 double precision :: z_debut, z_fin, z_tranche
 
-integer :: nb_lines_used_per_cpu(nb_mol)
 integer :: nfreq_cut_off, i_min, i_mid, i_max, i_line_min, i_line_max, i_line_center, nr
 double precision :: cut_off, wr, sr, er
 !~ =====================================================================
@@ -218,7 +218,7 @@ write(*,*)"Begin transfert"
 
 !$OMP SHARED(sec, pas_mult, pas_sort, erot, w_in, s_in, g_in, e_in, nlor, nvib, glor, elor, ndeg, vib, &
 !$OMP        freq1, freq2, nthread, nbl_sp_max, nbl_sp, nb_mol, tl, pl, mass, limbe, iter, smin, ttest, nlay, nview, &
-!$OMP        matrix_k, rad, et, icorps_k, f_mult, n2h2, ch4ch4, p, t, gl, ml, qref, lay_min, ql, ikh,&
+!$OMP        matrix_k, rad, et, icorps_k,  n2h2, ch4ch4, p, t, gl, ml, qref, lay_min, ql, ikh,&
 !$OMP        n2ch4, n2n2, df_cont, f1_cont, nlev, corps, hck296, nond, taucl, qex, sig, qn2, qar, qh2, &
 !$OMP        qch4, n_k, v, icloud, alor, g2lor, nfreq_inv, nfreq, etau_total, mode_inversion, matrix_t) &
 
@@ -226,7 +226,7 @@ write(*,*)"Begin transfert"
 !$OMP         rlor, fdop, f_xivib, f_xi, cloudj, f_cent, anh, acc, anc, ann, i1, fc, dtau, qa, vgt, &
 !$OMP         qh, qn, nst, nstep, nstep0, step0, navg0, hw0, stepj, navgj, cmam, h0, pj, dt, hckt, tj, detau0, &
 !$OMP         dtauk, dtauk0, n_sort1, lay_min_is, etau, etau00, dpl_lay, dpl_ground, &
-!$OMP         dtau_k, etau0_k, etau0, f, n_sort, z_tranche, z_fin, z_debut, nb_lines_used_per_cpu, &
+!$OMP         dtau_k, etau0_k, etau0, f, n_sort, z_tranche, z_fin, z_debut, f_mult,&
 !$OMP         isort, n_nl, nlines, nvoigt, nvoigt_i, w_out, s_out, e_out, n_out, fac_cont, dtau_k0, &
 !$OMP         nfreq_cut_off, i_min, i_mid, i_max, i_line_min, i_line_max, i_line_center, cut_off, wr, sr, er, nr)
 
@@ -248,14 +248,15 @@ if(limbe .and. iter == 0) then
 end if
 
 nfreq = int((freq2 - freq1)/pas_sort) + 1
+write(*,fmt='(a,i5,i5,a)')'There are ',nfreq, nfreq_inv,' points'
 allocate(etau_total(nlay, nview, nfreq))
 !$OMP END SINGLE
 
 !	Determination of the calculation step (cm-1)
 n_sort1 = (ithread*nfreq/nthread)
 z_fin  = ((ithread+1)*nfreq/nthread) - 1
-n_sort = (int(z_fin) - n_sort1)
-write(*,*)ithread,', start point=',n_sort1, 'end point', z_fin,', number point=', n_sort
+n_sort = (int(z_fin) - n_sort1) + 1
+write(*,fmt='(i2,a,i4,a,i4,a,i5)')ithread,', start point=',n_sort1, 'end point', int(z_fin),', number point=', n_sort
 
 z_debut   = freq1 + (n_sort1)*pas_sort
 z_fin     = freq1 + (z_fin)*pas_sort
@@ -266,7 +267,7 @@ allocate(pl_lay(nlay,n_sort), pl_ground(n_sort), dpl_lay(nlay,n_sort), dpl_groun
 f1 = z_debut
 f2 = z_fin
 f = 0.5 * (f1 + f2)
-hw0=1.d+03
+hw0 = 1.d+03
 do j = nlay, 1, -1
     call det_step(hw0, f1, tl(j), pl(j), mass, nb_mol, glor, elor, step0, navg0, pas_mult, pas_sort)
 end do
@@ -308,20 +309,15 @@ dtauk0(:) = 0d0
 etau00(:) = 0d0
 dtauk(:)  = 0d0
 
+allocate(etau(nlev,nview,n_sort))
 do is = 1, nview
     if(nview /= 0) then
         etau0_k(nlev,is,:) = 1d0
         etau0(is,:)        = 1d0
+        etau(nlev,is,:)    = 1d0
     end if
 end do
 
-allocate(etau(nlev,nview,n_sort))
-etau(:,:,:) = 0d0
-do is = 1, nview
-    etau(nlev,is,:) = 1d0
-end do
-
-nb_lines_used_per_cpu(:) = 0
 do j = nlay, 1, -1
     detau0(1:nstep0) = 0d0
     tj = tl(j)
@@ -413,66 +409,91 @@ do j = nlay, 1, -1
                 rlor = glor(k,ik) * (pj/atm) * (296d0/tj)**elor(k,ik)
                 y = fdop * rlor
                 v0 = voigt(0d0, y, v)
-                do i = 1, nvoigt_i
+                do i = 1, nvoigt
+                !do i = 1, nvoigt_i
                     x = fdop * stepj * (i-1)
                     vgt(ik,i) = voigt(x, y, v)
                     if(vgt(ik,i) < 0.5d-09*v0 .and. ik == nlor(k)) then
-                        nvoigt_i = i
+                        !nvoigt_i = i
+                        nvoigt = i
                         exit
                     end if
                 end do
             end do
-            ! Iteration over the NLINES(K) lines of Absorber K
-              cut_off = fdop * stepj * (nvoigt_i-1)
-              dt = hckt - hck296
-              do l = 1, nlines(k)
-                wr = w_out(k,l)
-                nr = n_out(k,l)
-                er = e_out(k,l)
-                sr = s_out(k,l)
-
-                ! Exclude lines too far from the wavenumber interval
-                if(wr > f2 + cut_off) then
-                  cycle
-                else if(wr < f1 - cut_off) then
-                  cycle
-                end if
-
-                s_over = sr * dexp(-er*dt) * (1.d0-dexp(-wr*hckt)) / &
-                         (1.d0 - dexp(-wr*hck296))
-
-!                ! Find the index of the wavenumber interval where the line center is located
-                i_line_center = nint((wr - f1) / stepj) + 1
-
-                ! Find the index of the borders of the line profile
-                i_line_min = i_line_center - nvoigt_i + 1
-                i_line_max = i_line_center + nvoigt_i - 1
-
-                ! Find the absorption cross section calculation indices
-                ! 0 <= i_mid <= n + 1 (and not 1 <= i_mid <= n) because we need to calculate at i = 1 and i = n
-                i_min = max(i_line_min, 1)
-                i_mid = min(max(i_line_center, 0), nstep0 + 1)
-                i_max = min(i_line_max, nstep0)
-
-                ! Left side of the line profile (center of the line not included)
-                if(i_line_center > 1) then  ! line_wavenumber > wavenumber_min
-                  do i = i_min, i_mid - 1
-                    dtauk(i) = dtauk(i) + s_over * vgt(nr, i_line_center - i + 1)
-                  end do
-                end if
-
-                ! Right side of the line profile (center of the line not included)
-                if(i_line_center < nstep0) then  ! line_wavenumber < wavenumber_max
-                  do i = i_mid + 1, i_max
-                    dtauk(i) = dtauk(i) + s_over * vgt(nr, i - i_line_center + 1)
-                  end do
-                end if
-
-                ! Center of the line
-                if(i_line_center >= 1 .and. i_line_center <= nstep0) then
-                  dtauk(i_mid) = dtauk(i_mid) + s_over * vgt(nr, 1)
-                end if
+            allocate(s_over(nlines(k)))
+            s_over(:) = 0d0
+            dt = hckt - hck296
+            do l = 1, nlines(k)
+                s_over(l) = s_out(k,l) * dexp(-e_out(k,l)*dt) * (1.d0-dexp(-w_out(k,l)*hckt)) / &
+                            (1.d0 - dexp(-w_out(k,l)*hck296))
             end do
+
+            if(nstep < nvoigt) then
+                    !* (f2-f1) < cutoff
+                call tau_lines1(w_out(k,:), s_over, n_out(k,:), nlines(k), dtauk, f1, stepj, nstep, nstep0, vgt, nvoigt)
+            else
+                if(nstep < 2*nvoigt) then
+                    !*	cutoff <= (f2-f1) < 2*cutoff
+                   call tau_lines2(w_out(k,:), s_over, n_out(k,:), nlines(k), dtauk, f1, stepj, nstep, nstep0, vgt, &
+                                   nvoigt)
+                else
+                    !* (f2-f1) >= 2*cutoff
+                    call tau_lines3(w_out(k,:), s_over, n_out(k,:), nlines(k), dtauk, f1, stepj, nstep, nstep0, vgt, &
+                                    nvoigt)
+                end if
+            end if
+           ! OTHER METHOD
+            ! Iteration over the NLINES(K) lines of Absorber K
+!              cut_off = fdop * stepj * (nvoigt_i-1)
+!              dt = hckt - hck296
+!              do l = 1, nlines(k)
+!                wr = w_out(k,l)
+!                nr = n_out(k,l)
+!                er = e_out(k,l)
+!                sr = s_out(k,l)
+!
+!                ! Exclude lines too far from the wavenumber interval
+!                if(wr > f2 + cut_off) then
+!                  cycle
+!                else if(wr < f1 - cut_off) then
+!                  cycle
+!                end if
+!
+!                s_over = sr * dexp(-er*dt) * (1.d0-dexp(-wr*hckt)) / &
+!                         (1.d0 - dexp(-wr*hck296))
+!
+!!                ! Find the index of the wavenumber interval where the line center is located
+!                i_line_center = nint((wr - f1) / stepj) + 1
+!
+!                ! Find the index of the borders of the line profile
+!                i_line_min = i_line_center - nvoigt_i + 1
+!                i_line_max = i_line_center + nvoigt_i - 1
+!
+!                ! Find the absorption cross section calculation indices
+!                ! 0 <= i_mid <= n + 1 (and not 1 <= i_mid <= n) because we need to calculate at i = 1 and i = n
+!                i_min = max(i_line_min, 1)
+!                i_mid = min(max(i_line_center, 0), nstep0 + 1)
+!                i_max = min(i_line_max, nstep)
+!
+!                ! Left side of the line profile (center of the line not included)
+!                if(i_line_center > 1) then  ! line_wavenumber > wavenumber_min
+!                  do i = i_min, i_mid - 1
+!                    dtauk(i) = dtauk(i) + s_over * vgt(nr, i_line_center - i + 1)
+!                  end do
+!                end if
+!
+!                ! Right side of the line profile (center of the line not included)
+!                if(i_line_center < nstep) then  ! line_wavenumber < wavenumber_max
+!                  do i = i_mid + 1, i_max
+!                    dtauk(i) = dtauk(i) + s_over * vgt(nr, i - i_line_center + 1)
+!                  end do
+!                end if
+!
+!                ! Center of the line
+!                if(i_line_center >= 1 .and. i_line_center <= nstep) then
+!                  dtauk(i_mid) = dtauk(i_mid) + s_over * vgt(nr, 1)
+!                end if
+!            end do
 
             f_mult = fdop * f_xi * f_xivib * cmam
             f_mult = f_mult * ql(j,k)
@@ -484,7 +505,7 @@ do j = nlay, 1, -1
                     dtau_k(ik,j,:) = f_mult * dtauk(:)
                 end if
             end do
-            deallocate(vgt)
+            deallocate(vgt, s_over)
         end if
     end do
     do ik = 1, n_k
@@ -825,7 +846,6 @@ deallocate(etau00, etau, etau0, etau0_k, detau0, dtauk0, dtauk, dtau_k, pl_lay, 
 !$OMP END PARALLEL
 
 ! Convolution of the spectrum by the apparatus function
-n_sort1 = nfreq
 write(*,*)'Convolution of the spectrum'
 open(unit=22, file=file_out, status='unknown', form='formatted')
 allocate(tb(nview,nfreq), rad_out(nfreq), tb_out(nfreq), f_out(nfreq))
@@ -834,7 +854,6 @@ rad_out(:) = 0d0
 tb_out(:)  = 0d0
 f_out(:)   = 0d0
 do is = 1, nview
-    write(*,*)is, rad(is,:)
     call conv(freq1, pas_sort, nfreq, rad, is, iconv, res, f_out, rad_out, tb_out, nc, nview)
     do i = 1+nc, nfreq-nc
         rad(is,i) = rad_out(i)
@@ -873,16 +892,16 @@ end if
 ! mode_inversion = 2: convolution of the matrice_t
 if (mode_inversion == 2) then
     write(*,*)'Convolution of the temperature matrices'
-    allocate(rad_kb(n_sort1),rad_outb(n_sort1))
+    allocate(rad_kb(nfreq),rad_outb(nfreq))
     rad_kb(:) = 0.
     rad_outb(:) = 0.
     do j=1,nlay
         do is=1,nview
-            do i=1,n_sort1
+            do i=1,nfreq
                 rad_kb(i) = matrix_t(j,is,i)
             enddo
-            call conv_k(freq1,pas_sort,n_sort1,rad_kb,iconv,res,f_out,rad_outb,nc)
-            do i=1+nc,n_sort1-nc
+            call conv_k(freq1,pas_sort,nfreq,rad_kb,iconv,res,f_out,rad_outb,nc)
+            do i=1+nc,nfreq-nc
                 matrix_t(j,is,i)=rad_outb(i)
             enddo
         enddo
