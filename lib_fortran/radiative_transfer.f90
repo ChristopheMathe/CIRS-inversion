@@ -408,21 +408,22 @@ do j = nlay, 1, -1
             fdop = 1. / (f * dsqrt(2.d+03*r*tj/mass(k)) / c)
 
             !*  --- Lorentz halfwidth (cm-1)
+            nvoigt_i = nvoigt
             do ik = nlor(k), 1, -1
                 rlor = glor(k,ik) * (pj/atm) * (296d0/tj)**elor(k,ik)
                 y = fdop * rlor
                 v0 = voigt(0d0, y, v)
-                do i = 1, nvoigt
+                do i = 1, nvoigt_i
                     x = fdop * stepj * (i-1)
                     vgt(ik,i) = voigt(x, y, v)
                     if(vgt(ik,i) < 0.5d-09*v0 .and. ik == nlor(k)) then
-                        nvoigt = i
+                        nvoigt_i = i
                         exit
                     end if
                 end do
             end do
             ! Iteration over the NLINES(K) lines of Absorber K
-              cut_off = fdop * stepj * (nvoigt-1)
+              cut_off = fdop * stepj * (nvoigt_i-1)
               dt = hckt - hck296
               do l = 1, nlines(k)
                 wr = w_out(k,l)
@@ -444,14 +445,14 @@ do j = nlay, 1, -1
                 i_line_center = nint((wr - f1) / stepj) + 1
 
                 ! Find the index of the borders of the line profile
-                i_line_min = i_line_center - nvoigt + 1
-                i_line_max = i_line_center + nvoigt - 1
+                i_line_min = i_line_center - nvoigt_i + 1
+                i_line_max = i_line_center + nvoigt_i - 1
 
                 ! Find the absorption cross section calculation indices
                 ! 0 <= i_mid <= n + 1 (and not 1 <= i_mid <= n) because we need to calculate at i = 1 and i = n
                 i_min = max(i_line_min, 1)
-                i_mid = min(max(i_line_center, 0), nstep + 1)
-                i_max = min(i_line_max, nvoigt)
+                i_mid = min(max(i_line_center, 0), nstep0 + 1)
+                i_max = min(i_line_max, nstep0)
 
                 ! Left side of the line profile (center of the line not included)
                 if(i_line_center > 1) then  ! line_wavenumber > wavenumber_min
@@ -461,14 +462,14 @@ do j = nlay, 1, -1
                 end if
 
                 ! Right side of the line profile (center of the line not included)
-                if(i_line_center < nvoigt) then  ! line_wavenumber < wavenumber_max
+                if(i_line_center < nstep0) then  ! line_wavenumber < wavenumber_max
                   do i = i_mid + 1, i_max
                     dtauk(i) = dtauk(i) + s_over * vgt(nr, i - i_line_center + 1)
                   end do
                 end if
 
                 ! Center of the line
-                if(i_line_center >= 1 .and. i_line_center <= nvoigt) then
+                if(i_line_center >= 1 .and. i_line_center <= nstep0) then
                   dtauk(i_mid) = dtauk(i_mid) + s_over * vgt(nr, 1)
                 end if
             end do
