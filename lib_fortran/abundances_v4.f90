@@ -106,7 +106,8 @@ Program ABUNDANCE
       n1            = 0, & !start index to extracting collisions data
       n2            = 0, & !end index to extracting collisions data
       tmp_nlay      = 0, & !temporary nlay when atm grid is redefined
-      tmp_nlev      = 0    !temporary nlev when atm grid is redefined
+      tmp_nlev      = 0, & !temporary nlev when atm grid is redefined
+      mode_inversion = 0   ! 0 = calcul direct, 1 = inversion molecule, 2 = inversion molecule + temperature
 
   integer, dimension(1,5) :: &
       ndeg_ch4 = 0 !number of degerescence on CH4
@@ -138,7 +139,8 @@ real, dimension(:,:), allocatable :: &
 
 real(kind=dbl_type) :: &
     var_expo, & !variable for the exponent
-    corr        !correlation lenght
+    corr, &     !correlation lenght
+    corr_b      !correlation lenght
 !----------------------------------------------------------------------!
 !--- DOUBLE PRECISION                                               ---!
 !----------------------------------------------------------------------!
@@ -146,6 +148,10 @@ double precision :: &
     a_1bar             = 0.0d0, & !log of P_surface
     apl1               = 0.0d0, & !log of Pl_surface
     corr_len_t         = 0.0d0, & !correlation lengh of temperature
+    corrT2             = 0.0d0, & !correlation lengh of temperature
+    dT                 = 0.0d0, & !correlation lengh of temperature
+    plo                = 0.0d0, & !correlation lengh of temperature
+    tra_b              = 0.0d0, & !correlation lengh of temperature
     df_cont            = 0.0d0, & !spectral step for collisions
     dlnq               = 0.0d0, & !column density
     dteta              = 0.0d0, & !angle of secante
@@ -361,7 +367,6 @@ character(len=256), dimension(:), allocatable :: &
 !----------------------------------------------------------------------!
   logical :: &
     limbe     , & !if at least one limb == True
-    invtemp   , & !if we inverse temperature
     method_invert !inverse matrix C, Cholesky or Gauss method
   !====================================================================================================================!
   !=== BEGIN PROGRAM                                                                                                ===!
@@ -386,8 +391,12 @@ character(len=256), dimension(:), allocatable :: &
                        file_ch4ch4, file_n2h2, nb_mol, name_mol, nb_obs, los, file_obs, file_noise, f_start, f_end, &
                        f_pas, f_pas_mult, convfunc, rayleigh, nb_weightfunc, file_weightfunc, nb_df, df, nb_mol_inv, &
                        name_mol_inv, corr_len, wei, niter, iprint, nb_kernel, f_kernel, file_spec_synth, file_profq, &
-                       file_kernel, limbe, nsp, nb_kernel_t, f_kernel_t, corr_len_t, wei_t, file_prof_t, file_kernel_t)
-!  write(*,*)"Read file parameters done."
+                       file_kernel, limbe, nsp, nb_kernel_t, f_kernel_t, corr_len_t, wei_t, file_prof_t, &
+                       file_kernel_t, mode_inversion)
+  if (mode_inversion == 0) then
+    niter = 0 ! calcul direct does not need iteration
+  end if
+  write(*,*)"Read file parameters done."
   !--------------------------------------------------------------------------------------------------------------------!
   !--- Section 1.2: Allocate variables                                                                              ---!
   !--------------------------------------------------------------------------------------------------------------------!
@@ -625,15 +634,22 @@ character(len=256), dimension(:), allocatable :: &
     select case (NAME_MOL(ik,2))
         case('1')
             nbl = nb_line(trim(NAME_MOL(ik,3)))
-            allocate(tmp_pl(nbl), tmp_aql(nbl), atmp_pl(nbl), atmp_aql(nbl))
+            allocate(tmp_pl(nlay), tmp_aql(nlay), atmp_pl(nlay), atmp_aql(nlay))
             open(unit=unit, file=trim(NAME_MOL(ik,3)), status='old')
+
             do j = 1, nbl
                 read(unit,*) tmp_pl(j), tmp_aql(j)
                 atmp_pl(j) = dlog(tmp_pl(j)) 
                 atmp_aql(j) = dlog(tmp_aql(j)) 
             end do
+            if (nbl <= nlay) then
+              do j = nbl+1, nlay
+                atmp_pl(j) = atmp_pl(j-1)+(dlog(1d-3))
+                atmp_aql(j) = atmp_aql(j-1)
+              end do
+            end if
             do j = 1, nlay
-              ql(j,ik) = dexp(tina(apl(j), atmp_pl, atmp_aql, nbl))
+              ql(j,ik) = dexp(tina(apl(j), atmp_pl, atmp_aql, nlay))
             end do
             deallocate(tmp_pl,tmp_aql,atmp_pl,atmp_aql)
             close(unit)
@@ -808,12 +824,13 @@ character(len=256), dimension(:), allocatable :: &
             r2 = r_1bar + z(j)
             r3 = r_1bar + z(j+1)
             if(los(i) < z(j)) then
-              sec(j,i) = ( dsqrt(r3**2 - r1**2) - dsqrt(r2**2 - r1**2) ) / (r3-r2)
+              sec(j,i) = ( dsqrt(r3*r3 - r1*r1) - dsqrt(r2*r2 - r1*r1) ) / (r3-r2)
             else
               if(los(i) < z(j+1)) then
-                sec(j,i) = dsqrt(r3**2 - r1**2) / (r3-r2)
+                sec(j,i) = dsqrt(r3*r3 - r1*r1) / (r3-r2)
                 lay_min(i) = j
-                write(*,fmt='(a,f10.2,a,i3)')'Altitude', los(i), ' km reached in layer #', lay_min(i)
+                write(*,fmt='(a,f10.2,a,i3,a,e11.4,a)')'Altitude', los(i), ' km reached in layer #', lay_min(i), &
+                                                       ', at pressure layer ',pl(j), ' mbar'
               end if
             end if
           end do
@@ -1094,11 +1111,10 @@ character(len=256), dimension(:), allocatable :: &
   if(nb_kernel > 0) then
     write(*,fmt='(a,a,i6,a,8f10.3)')'Kernels are written on file: ', trim(file_kernel), nb_kernel, &
                                     ' frequencies: ', (F_KERNEL(i), i=1, NB_KERNEL)
-  endif
-  call cpu_time(time_end)
-  write(*,*)'here',time_end-time_begin
+  end if
+
   !====================================================================================================================!
-  !=== PART 3: ITERATIVE METHODE TO RETRIEVE ABUNDANCES PROFILS                                                     ===!
+  !=== PART 3: ITERATIVE INVERSE METHODE                                                                            ===!
   !====================================================================================================================!
   !--- Section 3.1: Allocate variables                                                                              ---!
   !--------------------------------------------------------------------------------------------------------------------!
@@ -1125,270 +1141,391 @@ character(len=256), dimension(:), allocatable :: &
                             g_input, e_input, nb_cloud, taucl, cross_section_min, temperature_test, nlor, alor, glor, &
                             elor, g2lor, nvib, vib, ndeg, nb_mol_inv, icorps_k, matrix_k, rad, ikh, nfcont, nond, &
                             nond_max, sig, qex, nbl_sp_max, nbl_sp, f1_cont, df_cont, iter, nfreq_inv, qref, tab_n2n2, &
-                            tab_n2ch4, tab_ch4ch4, tab_n2h2, v, name_mol(:,1), path_input, limbe, invtemp, matrix_t)
-
-    !------------------------------------------------------------------!
-    !--- Section 4.1: print K-matrices if iprint > 1                ---!
-    !------------------------------------------------------------------!
-    if(iprint > 1) then
-        do ix = 1, nx
-            i = nint( (freq_x(ix)-F_start) / F_pas_mult + 0.5)
-            write(*,fmt='(a,f8.2,a)')' K-matrices at wavenumber =', freq_x(ix), ' cm-1:'
-            do is = 1, nb_obs
-                write(*,fmt='(5x,a,i2)')'Secant #', is
-                do ik = 1, nb_mol_inv
-                    write(*,fmt='(10x,a5)')name_mol_inv(ik)
-                    if(icorps_k(ik) > 0) then
-                        write(*,fmt='(12x,e14.4,f9.2,e15.4,5x,e15.4)')(pl(j), tl(j), ql(j,icorps_k(ik)), &
-                                                                      matrix_k(ik,j,is,i), j = nlay, 1, -1)
-                    else
-                        write(*,fmt='(12x,e14.4,f9.2,e15.4,5x,e15.4)')(pl(j), tl(j), taucl_tot(j), &
-                                                                      matrix_k(ik,j,is,i), j = nlay, 1, -1)
-                    end if
-                end do
-            end do
+                            tab_n2ch4, tab_ch4ch4, tab_n2h2, v, name_mol(:,1), path_input, limbe, mode_inversion, &
+                            matrix_t)
+    !------------------------------------------------------------------------------------------------------------------!
+    !--- Section 5.7: calculate residu (observed - synthetic)                                                       ---!
+    !------------------------------------------------------------------------------------------------------------------!
+    write(*,fmt='(3x,a,5x,a,10x,a,8x,a,3x,a)')'freq_x', 'noise', 'obs', 'synth', 'obs - synth'
+    do ix = 1, nx
+        i = nint( (freq_x(ix) - F_start) / F_pas + 0.5 )
+        do is = 1, nb_obs
+            rad_diff(is,ix) = rad_obs(is,ix) - rad(is,i)
         end do
-    end if
-    !------------------------------------------------------------------!
-    !--- Section 4.2: calculate residu (observed - synthetic)       ---!
-    !------------------------------------------------------------------!
-    print 355
-    355 format(/,3x,'freq_x',5x,'noise',10x,'obs',8x,'synth',3x,'obs - synth',/)
-    do  ix=1,nx
-        i=nint((freq_x(ix)-F_start)/F_pas+0.5)
-        do is=1,nb_obs
-            rad_diff(is,ix)=rad_obs(is,ix)-rad(is,i)
-        end do
-        print 354, freq_x(ix),rad_noise(ix),rad_obs(1,ix),rad(1,i),rad_diff(1,ix),1
-        354 format(f10.3,e12.3,2x,3e12.4,i5)
+        write(*,fmt='(f10.3,e12.3,2x,3e12.4,i5)')freq_x(ix), rad_noise(ix), rad_obs(1,ix), rad(1,i), rad_diff(1,ix), 1
         if(nb_obs > 1) then
-            do is=2,nb_obs
-                print 357, rad_obs(is,ix),rad(is,i),rad_diff(is,ix),is
-                357 format(24x,3e12.4,i5)
+            do is = 2, nb_obs
+                write(*,fmt='(24x,3e12.4,i5)')rad_obs(is,ix), rad(is,i), rad_diff(is,ix), is
             enddo
         endif
     end do
-    !------------------------------------------------------------------!
-    !--- Section 4.3: Calculate root mean square (RMS)              ---!
-    !------------------------------------------------------------------!
-    print *, 'NESR**2 * nb_wavenumber * n_obs =',rad_noise(nx)**2 * m
-    print *, '*** rms ***'
-    do  is=1,nb_obs
-        rms=0.
-        do ix=1,nx
-            i=nint((freq_x(ix)-F_start)/F_pas+0.5)
-            rms=rms+rad_diff(is,ix)**2
+    !------------------------------------------------------------------------------------------------------------------!
+    !--- Section 5.8: Calculate root mean square (RMS)                                                              ---!
+    !------------------------------------------------------------------------------------------------------------------!
+    write(*,*)'NESR**2 * nb_wavenumber * n_obs =', rad_noise(nx)**2 * m
+    write(*,*)'*** rms ***'
+    do  is = 1, nb_obs
+        rms = 0d0
+        do ix = 1, nx
+            i = nint( (freq_x(ix) - F_start) / F_pas + 0.5d0)
+            rms = rms + rad_diff(is,ix)**2
         end do
-        print 356, is, dsqrt(rms/dfloat(nx))
-        356 format(/,' is =',i2,': rms =',e10.3)
+        write(*,fmt='(a,i2,a,e10.3)')' is = ', is, ': rms = ', dsqrt(rms/dfloat(nx))
     end do
-    !==================================================================!
-    !=== PART 5: INVERSE METHODE                                    ===!
-    !==================================================================!
-    !------------------------------------------------------------------!
-    !--- Section 5.1: Calculate S * Kt matrice                      ---!
-    !------------------------------------------------------------------!
-    do ik=1,nb_mol_inv
-        do i=1,nlay
-            do j=1,m
-                sk(ik,i,j)=0.
-            enddo
-        enddo
-        do i=1,nlay
-            do k=1,nlay
-                var_expo = (-0.5d+00*(dlog(pl(i)/pl(k))**2)) / (corr_len(ik)**2)
+
+    if (mode_inversion /= 0) then
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 4.1: print K-matrices if iprint > 1                                                              ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      if(iprint > 1) then
+          do ix = 1, nx
+              i = nint( (freq_x(ix)-F_start) / F_pas_mult + 0.5)
+              write(*,fmt='(a,f8.2,a)')' K-matrices at wavenumber =', freq_x(ix), ' cm-1:'
+              do is = 1, nb_obs
+                  write(*,fmt='(5x,a,i2)')'Secant #', is
+                  do ik = 1, nb_mol_inv
+                      write(*,fmt='(10x,a5)')name_mol_inv(ik)
+                      if(icorps_k(ik) > 0) then
+                          write(*,fmt='(12x,e14.4,f9.2,e15.4,5x,e15.4)')(pl(j), tl(j), ql(j,icorps_k(ik)), &
+                                                                        matrix_k(ik,j,is,i), j = nlay, 1, -1)
+                      else
+                          write(*,fmt='(12x,e14.4,f9.2,e15.4,5x,e15.4)')(pl(j), tl(j), taucl_tot(j), &
+                                                                        matrix_k(ik,j,is,i), j = nlay, 1, -1)
+                      end if
+                  end do
+              end do
+          end do
+      end if
+      !================================================================================================================!
+      !=== PART 5: INVERSE METHODE                                                                                  ===!
+      !================================================================================================================!
+      !--- Section 5.1: Calculate S * Kt matrice                                                                    ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      sk(:,:,:) = 0d0
+      do ik = 1, nb_mol_inv
+          do i = 1, nlay
+              do k = 1, nlay
+                  var_expo = (-0.5d0 * (dlog(pl(i)/pl(k))**2)) / (corr_len(ik)**2)
+                  if (var_expo < -200) then
+                      corr = 0d0
+                  else
+                      corr = wei(ik) * dexp(var_expo)
+                  end if
+                  s(i,k,ik) = corr
+                  do j = 1, m
+                      is = 1 + (j-1)/nx
+                      ix = j - (is-1)*nx
+                      ifreq = nint( (freq_x(ix) - F_start)/F_pas + 0.5 )
+                      sk(ik,i,j) = sk(ik,i,j) + corr * matrix_k(ik,k,is,ifreq)
+                  end do
+              end do
+          end do
+      end do
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 5.2: Calculate K * S *Kt matrices                                                                ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      ssk(:,:,:) = 0d0
+      do ik = 1, nb_mol_inv
+          do i = 1, m
+              is = 1 + (i-1)/nx
+              ix = i - (is-1)*nx
+              ifreq = nint( (freq_x(ix) - F_start)/F_pas + 0.5 )
+              do j = 1, m
+                  do k = 1, nlay
+                      ssk(ik,i,j) = ssk(ik,i,j) + matrix_k(ik,k,is,ifreq) * sk(ik,k,j)
+                  end do
+              end do
+          end do
+          tra = 0d0
+          do j = 1, m
+              tra = tra + ssk(ik,j,j)
+          end do
+          write(*,fmt='(a,i2,a,f10.5)')' Trace of matrix a K * S * Kt for absorber', ik, ':', tra
+      end do
+
+      ssk_b(:,:) = 0d0
+      if (mode_inversion == 2) then
+        !--------------------------------------------------------------------------------------------------------------!
+        !--- Section 5.3: Calculate S * Mt matrice                                                                  ---!
+        !--------------------------------------------------------------------------------------------------------------!
+        corrT2 = corr_len_T**2
+        sm(:,:) = 0d0
+        do i = 1, nlay
+            do k = 1, nlay
+                plo = dlog(pl(i)/pl(k))
+                var_expo=-0.5d0 * plo**2/corrT2
                 if (var_expo < -200) then
-                    corr = 0d0
+                    corr_b = 0d0
                 else
-                    corr = wei(ik)*dexp(var_expo)
+                    corr_b = wei_t * exp(var_expo)
                 end if
-                s(i,k,ik)=corr
+                s_b(i,k)=corr_b
                 do j=1,m
                     is=1+(j-1)/nx
                     ix=j-(is-1)*nx
                     ifreq=nint((freq_x(ix)-F_start)/F_pas+0.5)
-                    sk(ik,i,j)=sk(ik,i,j)+corr*matrix_k(ik,k,is,ifreq)
+                    sm(i,j)=sm(i,j)+corr_b*matrix_t(k,is,ifreq)
                 enddo
             enddo
         enddo
-    end do
-    !------------------------------------------------------------------!
-    !--- Section 5.2: Calculate K * S *Kt matrices                  ---!
-    !------------------------------------------------------------------!
-    do  ik=1,nb_mol_inv
-        do i=1,m
-            is=1+(i-1)/nx
-            ix=i-(is-1)*nx
-            ifreq=nint((freq_x(ix)-F_start)/F_pas+0.5)
-            do j=1,m
-                ssk(ik,i,j)=0.
-                do k=1,nlay
-                    ssk(ik,i,j)=ssk(ik,i,j)+matrix_k(ik,k,is,ifreq)*sk(ik,k,j)
-                enddo
-            enddo
-        enddo
-        tra=0.
-        do j=1,m
-            tra=tra+ssk(ik,j,j)
-        enddo
-        print 889, ik, tra
-        889 format(/,' Trace of matrix a K * S * Kt for absorber',i2,':',f10.5)
-    END DO
-    !------------------------------------------------------------------!
-    !--- Section 5.3: Calculate Matrix C                            ---!
-    !------------------------------------------------------------------!
-    allocate(c(m,m))
-    allocate(c0(m))
-    do i=1,nx
-        do is=1,nb_obs
-            j=i+(is-1)*nx
-            c(j,j)=rad_noise(i)**2
-            c0(j)=c(j,j)
-        enddo
-    end do
-    do i=1,m
-      do j=1,m
-        if(i /= j) then
-          c(i,j)=0.
-        end if
-        do ik=1,nb_mol_inv
-          c(i,j)=c(i,j)+ssk(ik,i,j)
+        !--------------------------------------------------------------------------------------------------------------!
+        !	Calculate M * S * Mt matrices
+        !--------------------------------------------------------------------------------------------------------------!
+        do i = 1, m
+          is = 1 + (i-1)/nx
+          ix = i - (is-1)*nx
+          ifreq = nint( (freq_x(ix) - F_start) / F_pas + 0.5)
+          do j = 1 , m
+            do k = 1 , nlay
+              ssk_b(i,j) = ssk_b(i,j) + matrix_t(k,is,ifreq) * sm(k,j)
+            end do
+          end do
+        end do
+        tra_b = 0d0
+        do j = 1 , m
+            tra_b = tra_b + ssk_b(j,j)
+        end do
+        write(*,fmt='(a,f10.5)')'Trace of matrix a M * S * Mt (for temperature):', tra_b
+      end if
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 5.3: Calculate Matrix C                                                                          ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      allocate(c(m,m), c0(m))
+      do i = 1, nx
+        do is = 1, nb_obs
+          j = i + (is-1) * nx
+          c(j,j) = rad_noise(i)**2
+          c0(j) = c(j,j)
         end do
       end do
-    end do
-    !------------------------------------------------------------------!
-    !--- Section 5.4: Invert Matrix C                               ---!
-    !------------------------------------------------------------------!
-    if (method_invert) then
-        call choldc(c,m)
-    else
-        call matrix_inv(c,m,m)
-    end if
-    !------------------------------------------------------------------!
-    !--- Section 5.5: Calculate final matrices and variations of    ---!
-    !---              absorbers                                     ---!
-    !------------------------------------------------------------------!
-    do ik = 1, nb_mol_inv
-        write(*,fmt='(10x,a5)')name_mol_inv(ik)
-        do i=1,nlay
-            do j=1,m
-                matrix_r(i,j)=0d0
-                do k=1,m
-                    matrix_r(i,j)=matrix_r(i,j)+sk(ik,i,k)*c(k,j)
+      do i = 1, m
+        do j = 1, m
+          if(i /= j) then
+            c(i,j) = 0d0
+          end if
+          do ik = 1, nb_mol_inv
+            c(i,j) = c(i,j) + ssk(ik,i,j) + ssk_b(i,j)
+          end do
+        end do
+      end do
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 5.4: Invert Matrix C                                                                             ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      if (method_invert) then
+          call choldc(c, m)
+      else
+          call matrix_inv(c, m, m)
+      end if
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 5.5: Calculate final matrice and variations of temperatures                                      ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      if (mode_inversion == 2) then
+        matrix_r2(:,:) = 0d0
+        do i = 1, nlay
+            do j = 1, m
+                do k = 1, m
+                    matrix_r2(i,j) = matrix_r2(i,j) + sm(i,k) * c(k,j)
                 end do
             end do
         end do
-         
-        do i=nlay,1,-1
-            dlnq=0.d0
-            do j=1,m
-                is=1+(j-1)/nx
-                ifreq=j-(is-1)*nx
-                dlnq=dlnq+matrix_r(i,j)*rad_diff(is,ifreq)
+
+        do i = nlay, 1, -1
+            dt = 0d0
+            do j = 1, m
+                is = 1 + (j-1)/nx
+                ifreq = j - (is-1)*nx
+                dt = dt + matrix_r2(i,j) * rad_diff(is,ifreq)
             end do
-            if(icorps_k(ik) > 0) then
-                ql(i,icorps_k(ik))=ql(i,icorps_k(ik))*dexp(dlnq)
-            !**                     Remove any supersaturation
-                qsat=1.01325d+03*10**(a(icorps_k(ik)) - b(icorps_k(ik))/tl(i))/pl(i)
-                ql(i,icorps_k(ik))=dmin1(qsat,ql(i,icorps_k(ik)))
-                print 1100,i, pl(i),dlnq,ql(i,icorps_k(ik))
-            else
-                taucl_tot(i)=taucl_tot(i)*dexp(dlnq)
-                print 1100,i, pl(i),dlnq,taucl_tot(i)
-                if(nb_cloud > 0) then
-                    do ic=1,nb_cloud
-                        taucl(ic,i)=taucl(ic,i)*dexp(dlnq)
-                    enddo
-                endif
-            endif
-            1100 format(i3,e14.4,f12.4,e15.4)
+            tl(i) = tl(i) + dt
+            write(*,fmt='(i3,e14.4,f10.3,5x,f10.3)')i,pl(i),dt,tl(i)
         end do
-        if(name_mol_inv(ik) == 'HAZE') then
+        t(1) = t(1) + dt
+
+        ! Calculate covariance matrix
+        do i = 1, nlay
+          errtb(i) = 0d0
+          do j = 1, m
+            errtb(i) = errtb(i) + c0(j) * matrix_r2(i,j)**2
+          end do
+          do k = 1, nlay
+            cf_b(i,k) = s_b(i,k)
+            do  j = 1, m
+              cf_b(i,k) = cf_b(i,k) - matrix_r2(i,j) * sm(k,j)
+            end do
+          end do
+        end do
+
+        do i = 1, nlay
+            errt(i) = dsqrt(cf_b(i,i))
+            errtb(i) = dsqrt(errtb(i))
+        end do
+
+        ! Writing T vertical profile
+        open(unit=10, file=file_prof_t, status='unknown')
+        do i = 1, ninput
+            if(pii(i) < p(1)) then
+                write(10,fmt='(e12.4,f10.3,2f12.2)')pii(i), ti(i)
+            end if
+        end do
+        write(10,fmt='(e12.4,f10.3,2f12.2)')p(1), t(1)
+        write(10,fmt='(e12.4,f10.3,2f12.2)')(pl(i), tl(i), errt(i), errtb(i),i=1,nlay)
+        write(*,*)('errt = ', errt(i), i = 1, nlay)
+        close(10)
+      end if
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 5.6: Calculate final matrices and variations of absorbers                                        ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      matrix_r(:,:) = 0d0
+      do ik = 1, nb_mol_inv
+        write(*,fmt='(10x,a5)')name_mol_inv(ik)
+        do i = 1, nlay
+          do j = 1, m
+            do k = 1, m
+              matrix_r(i,j) = matrix_r(i,j) + sk(ik,i,k) * c(k,j)
+            end do
+          end do
+        end do
+
+        do i = nlay, 1, -1
+          dlnq=0d0
+          do j = 1, m
+            is = 1 + (j-1)/nx
+            ifreq = j - (is-1)*nx
+            dlnq = dlnq + matrix_r(i,j) * rad_diff(is,ifreq)
+          end do
+          if(icorps_k(ik) > 0) then
+            ql(i,icorps_k(ik)) = ql(i,icorps_k(ik)) * dexp(dlnq)
+            ! Remove any supersaturation
+            qsat = 1.01325d+03 * 10**( a(icorps_k(ik)) - b(icorps_k(ik))/tl(i) ) / pl(i)
+            ql(i,icorps_k(ik)) = dmin1(qsat, ql(i,icorps_k(ik)))
+            write(*,fmt='(i3,e14.4,f12.4,e15.4)')i, pl(i), dlnq, ql(i,icorps_k(ik))
+          else
+            taucl_tot(i) = taucl_tot(i) * dexp(dlnq)
+            write(*,fmt='(i3,e14.4,f12.4,e15.4)')i, pl(i), dlnq, taucl_tot(i)
             if(nb_cloud > 0) then
-                do ic=1,nb_cloud
-                    print *, 'nb_cloud= ', ic
-                    do i=nlay,1,-1
-                        print 1100,i, pl(i), taucl(ic,i)
-                    enddo
-                enddo
-            endif
-            do j=1,nlay
-                ql(j,icorps_k(ik))=taucl_tot(j)
-            enddo
-        endif
-        !--------------------------------------------------------------!
-        !--- Section 5.6: Errorbar calculation by Barney's Method   ---!
-        !--------------------------------------------------------------!
-        if(iter == niter) then
-            do i=1,nlay
-                dlnerrqb(i,ik)=0.
-                do j=1,m
-                    dlnerrqb(i,ik)=dlnerrqb(i,ik)+matrix_r(i,j)**2*c0(j)
-                enddo
-            enddo
-            do i=1,nlay
-                dlnerrqb(i,ik)=dsqrt(dlnerrqb(i,ik))
-                errqb_sup(i,ik)=ql(i,icorps_k(ik))*dexp(dlnerrqb(i,ik))
-                errqb_inf(i,ik)=ql(i,icorps_k(ik))/dexp(dlnerrqb(i,ik))
-            enddo
-        !--------------------------------------------------------------!
-        !--- Section 5.7: Errorbar calcultion by a second method    ---!
-        !--------------------------------------------------------------!
-            do i=1,nlay
-                do k=1,nlay
-                    cf(i,k)=s(i,k,ik)
-                    do j=1,m
-                        cf(i,k)=cf(i,k)-matrix_r(i,j)*sk(ik,k,j)
-                    enddo
-                enddo
-            enddo
-            do i=1,nlay
-                dlnerrq(i,ik)=dsqrt(cf(i,i))
-                errq_sup(i,ik)=ql(i,icorps_k(ik))*dexp(dlnerrq(i,ik))
-                errq_inf(i,ik)=ql(i,icorps_k(ik))/dexp(dlnerrq(i,ik))
-            enddo
-        endif
-    end do
-    
-    deallocate(c, c0)
-  end do
-!======================================================================!
-!=== PART 6: WRINTING OUTPUT                                    =======!
-!======================================================================!
-!--- Section 6.1: Writing abundance vertical profiles               ---!
-!----------------------------------------------------------------------!
-open(unit=10, file=file_profq, status='unknown')
-write(10,fmt='(28x,5(4x,a4,4x,48x))')(name_mol_inv(ik), ik=1, nb_mol_inv)
-do j = nlay, 1, -1
-    write(10,fmt='(f8.2,e11.4,f9.2,5(5e12.4))')0.5*(z(j)+z(j+1)), pl(j), tl(j), (ql(j,icorps_k(ik)), &
-                                               errq_inf(j,ik), errq_sup(j,ik), errqb_inf(j,ik), errqb_sup(j,ik), ik=1, &
-                                               nb_mol_inv)
-end do
-close(10)
-!----------------------------------------------------------------------!
-!--- Section 6.2: Calculate kernels                                 ---!
-!----------------------------------------------------------------------!
-open(unit=11,file=file_kernel,status='unknown')
-do ifk = 1, nb_kernel
-    i = nint( (f_kernel(ifk) - f_start)/f_pas + 0.5 )
-    write(11,fmt='(20x,f10.3,a)')f_start+f_pas*(dfloat(i)-0.5d0), ' cm-1'
-    do ik = 1, nb_mol_inv
-        write(11,fmt='(28x,5(4x,a4,4x,48x))') name_mol_inv(ik)
-        do j=nlay,1,-1
+              do ic = 1, nb_cloud
+                taucl(ic,i) = taucl(ic,i) * dexp(dlnq)
+              end do
+            end if
+          end if
+        end do
+
+        if(name_mol_inv(ik) == 'HAZE') then
+          if(nb_cloud > 0) then
+            do ic = 1, nb_cloud
+              write(*,*)'nb_cloud= ', ic
+              do i = nlay, 1, -1
+                write(*,fmt='(i3,e14.4,f12.4,e15.4)')i, pl(i), taucl(ic,i)
+              end do
+            end do
+          end if
+          do j = 1, nlay
+            ql(j,icorps_k(ik)) = taucl_tot(j)
+          end do
+        end if
+      end do
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 5.6: Errorbar calculation by Barney's Method                                                     ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      do ik = 1, nb_mol_inv
+        do i=1,nlay
+          dlnerrqb(i,ik) = 0d0
+          do j = 1, m
+            dlnerrqb(i,ik) = dlnerrqb(i,ik) + c0(j) * matrix_r(i,j)**2
+          end do
+        end do
+
+        do i = 1, nlay
+          dlnerrqb(i,ik) = dsqrt(dlnerrqb(i,ik))
+          errqb_sup(i,ik) = ql(i,icorps_k(ik)) * dexp(dlnerrqb(i,ik))
+          errqb_inf(i,ik) = ql(i,icorps_k(ik)) / dexp(dlnerrqb(i,ik))
+        end do
+        !--------------------------------------------------------------------------------------------------------------!
+        !--- Section 5.7: Errorbar calcultion by a second method                                                    ---!
+        !--------------------------------------------------------------------------------------------------------------!
+        do i = 1, nlay
+          do k= 1, nlay
+            cf(i,k) = s(i,k,ik)
+            do j = 1, m
+              cf(i,k) = cf(i,k) - matrix_r(i,j) * sk(ik,k,j)
+            end do
+          end do
+        end do
+        do i = 1, nlay
+          dlnerrq(i,ik) = dsqrt(cf(i,i))
+          errq_sup(i,ik) = ql(i,icorps_k(ik)) * dexp(dlnerrq(i,ik))
+          errq_inf(i,ik) = ql(i,icorps_k(ik)) / dexp(dlnerrq(i,ik))
+        end do
+      end do
+      !================================================================================================================!
+      !=== PART 6: WRINTING OUTPUT                                                                                  ===!
+      !================================================================================================================!
+      !--- Section 6.1: Writing abundance vertical profiles                                                         ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      open(unit=10, file=file_profq, status='unknown')
+      write(10,fmt='(28x,5(4x,a4,4x,48x))')(name_mol_inv(ik), ik=1, nb_mol_inv)
+      do j = nlay, 1, -1
+        write(10,fmt='(f8.2,e11.4,f9.2,5(5e12.4))')0.5*(z(j)+z(j+1)), pl(j), tl(j), (ql(j,icorps_k(ik)), &
+                                                   errq_inf(j,ik), errq_sup(j,ik), errqb_inf(j,ik), errqb_sup(j,ik), &
+                                                   ik=1, nb_mol_inv)
+      end do
+      close(10)
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 6.2: Calculate kernels for molecules                                                             ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      open(unit=11, file=file_kernel, status='unknown')
+      do ifk = 1, nb_kernel
+        i = nint( (f_kernel(ifk) - f_start)/f_pas + 0.5 )
+        write(11,fmt='(20x,f10.3,a)')f_start+f_pas*(dfloat(i)-0.5d0), ' cm-1'
+        do ik = 1, nb_mol_inv
+          write(11,fmt='(28x,5(4x,a4,4x,48x))')name_mol_inv(ik)
+          do j = nlay, 1, -1
             write(11,fmt='(f8.2,e13.5,f8.2,2x,*(e13.5))')0.5*(z(j)+z(j+1)), pl(j), tl(j), &
-                          (matrix_k(ik,j,is,i)/(ap(j)-ap(j+1))/rad(is,i), is=1, nb_obs)
-        enddo
-    end do
-end do
-close(11)
+                                                         (matrix_k(ik,j,is,i)/(ap(j)-ap(j+1))/rad(is,i), is=1, nb_obs)
+          end do
+        end do
+      end do
+      close(11)
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 6.3: Calculate kernels for temperature                                                           ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      if (mode_inversion == 2) then
+        open(unit=12,file=file_kernel_t,status='unknown')
+        do ik = 1, nb_kernel_t
+            i = nint( (f_kernel_t(ik) - F_start) / F_pas + 0.5)
+            write(12,fmt='(20x,f10.3,a)')F_start + F_pas * (dfloat(i)-0.5d0), ' cm-1'
+            do j = nlay, 1, -1
+                write(12,fmt='(f8.2,e13.5,f8.2,2x,*(e13.5))')0.5*(z(j)+z(j+1)), pl(j), tl(j), &
+                                                             (matrix_t(j,is,i)/(ap(j)-ap(j+1))/rad(is,i), is=1, nb_obs)
+            end do
+        end do
+        close(12)
+      end if
+      !----------------------------------------------------------------------------------------------------------------!
+      !--- Section 6.2: Calculate kernels for molecules                                                             ---!
+      !----------------------------------------------------------------------------------------------------------------!
+      open(unit=11, file=file_kernel, status='unknown')
+      do ifk = 1, nb_kernel
+        i = nint( (f_kernel(ifk) - f_start)/f_pas + 0.5 )
+        write(11,fmt='(20x,f10.3,a)')f_start+f_pas*(dfloat(i)-0.5d0), ' cm-1'
+        do ik = 1, nb_mol_inv
+          write(11,fmt='(28x,5(4x,a4,4x,48x))')name_mol_inv(ik)
+          do j = nlay, 1, -1
+            write(11,fmt='(f8.2,e13.5,f8.2,2x,*(e13.5))')0.5*(z(j)+z(j+1)), pl(j), tl(j), &
+                                                         (matrix_k(ik,j,is,i)/(ap(j)-ap(j+1))/rad(is,i), is=1, nb_obs)
+          end do
+        end do
+      end do
+      close(11)
+      deallocate(c, c0)
+    end if
+  end do
 
-
-deallocate(z, p, ap, t, pl, apl, tl, gl, qch4, tab_i, lay_min, sec, ql, pii, ti, ati, pcli, taucli, apcli, ataucli, &
-           taucl, taucl_tot, nlor, alor, glor, elor, g2lor, nvib, vib, ndeg, cross_section_min, temperature_test, &
-           freq_x, rad_obs, rad_diff, rad_noise, sk, sm, ssk, s, s_b, ssk_b, cf, cf_b, dlnerrqb, errqb_sup, errqb_inf, &
-           dlnerrq, errq_sup, errq_inf, errt, errtb, ml, matrix_k, matrix_r, matrix_r2, rad, tab_n2n2, tab_n2ch4, &
-           tab_ch4ch4, tab_n2h2, qref, n_x)
-
+  deallocate(z, p, ap, t, pl, apl, tl, gl, qch4, tab_i, lay_min, sec, ql, pii, ti, ati, pcli, taucli, apcli, ataucli, &
+             taucl, taucl_tot, nlor, alor, glor, elor, g2lor, nvib, vib, ndeg, cross_section_min, temperature_test, &
+             freq_x, rad_obs, rad_diff, rad_noise, sk, sm, ssk, s, s_b, ssk_b, cf, cf_b, dlnerrqb, errqb_sup, &
+             errqb_inf, dlnerrq, errq_sup, errq_inf, errt, errtb, ml, matrix_k, matrix_r, matrix_r2, rad, tab_n2n2, &
+             tab_n2ch4, tab_ch4ch4, tab_n2h2, qref, n_x, matrix_t)
 !======================================================================================================================!
 !=== END PROGRAM                                                                                                    ===!
 !======================================================================================================================!

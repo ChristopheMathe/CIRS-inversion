@@ -1,6 +1,6 @@
 subroutine planck(f1,pas_sort,n_sort,nlay,tl,t_ground,pl,pl_ground)
 
-use lib_functions
+use lib_functions, only: pla
 
 implicit none
 

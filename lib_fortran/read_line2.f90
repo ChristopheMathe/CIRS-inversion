@@ -72,7 +72,7 @@ do k = 1, ncorps
         end do
     end if
     if(read_begin < read_end) then
-        do nbl = read_begin, read_end
+        do 666 nbl = read_begin, read_end
             st = s_in(k,nbl)*dexp(-a*e_in(k,nbl))
             if(st >= sm) then
                 cpt = cpt + 1
@@ -88,14 +88,14 @@ do k = 1, ncorps
                         if(g_in(k,nbl) <= g2lor(k,i)) then
                             n_out(k,cpt) = i
                             n_nl(k,i) = n_nl(k,i) + 1
-                            exit !go to 666
+                            go to 666
                         endif
                     end do
                     n_out(k,cpt) = nlor(k)
                     n_nl(k,nlor(k)) = cpt - sum(n_nl(k,1:4))
                 end if
             end if
-        end do
+        666 end do
     endif
 end do
 return

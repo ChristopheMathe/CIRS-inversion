@@ -81,6 +81,7 @@
 !*** INVERSION INPUT INFORMATION
 !**********************************************************************!
 &INPUT_INVERSION
+    MODE_INVERSION  = 0  ! 0 = calcul direct, 1 = inversion molecule, 2 = inverstion molecule + temperetature
     NB_DF           = 1
     DF(1,:)         = 702.00,718.25,0.50
     NB_MOL_INV      = 2

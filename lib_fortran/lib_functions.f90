@@ -3,10 +3,10 @@ implicit none
 double precision, parameter :: hck = 1.43868d+00
 double precision, parameter :: r = 8.31441d+00
 double precision, parameter :: coef = 1.190605d-05
-double precision, parameter :: spi=1d0/(dsqrt(4d0*datan(1d0)))
-double precision, parameter :: pi= 4d0*datan(1d0)
-!double precision, parameter :: spi = 1./dsqrt(3.1415926536d+00)
-!double precision, parameter :: pi= 3.1415926536
+!double precision, parameter :: spi=1d0/(dsqrt(4d0*datan(1d0)))
+!double precision, parameter :: pi= 4d0*datan(1d0)
+double precision, parameter :: spi = 1./dsqrt(3.1415926536d+00)
+double precision, parameter :: pi= 3.1415926536
 double precision, parameter :: dp=0.0025d+00
 double precision, parameter :: ds=0.01d+00
 double precision, parameter :: yl=1.d+00/99.d+00
@@ -37,9 +37,13 @@ do while(JU-JL > 1)
             JU = JM
         end if
 end do
-J = JL
-FRAC = (A-X(J)) / (X(J+1)-X(J))
-TINA = (1.-FRAC) * Y(J) + FRAC * Y(J+1)
+J=JL
+if (X(J) == X(J+1)) then
+  TINA=Y(J)
+else
+  FRAC=(A-X(J))/(X(J+1)-X(J))
+  TINA=(1.-FRAC)*Y(J)+FRAC*Y(J+1)
+end if
 end function TINA
 !~ =====================================================================
 

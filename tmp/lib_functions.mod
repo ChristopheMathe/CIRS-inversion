@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from lib_fortran/lib_functions.f90
-MD5:8ebfd2e9f6e25f8408bc905dc94c50c6 -- If you edit this, you'll get what you deserve.
+MD5:95d764b33c1e24244b4441c9ae042d32 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () () ()
 () () ())
@@ -14,15 +14,15 @@ MD5:8ebfd2e9f6e25f8408bc905dc94c50c6 -- If you edit this, you'll get what you de
 
 ()
 
-(2 'bright' 'lib_functions' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
-DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (REAL 8 0 0 0 REAL ()) 3 0 (4 5)
-() 2 () () () 0 0)
-6 'coef' 'lib_functions' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
+(2 '__convert_r4_r8' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT
+UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 FUNCTION ELEMENTAL PURE) (REAL 8 0 0 0
+REAL ()) 0 0 () () 2 () () () 0 0)
+3 'bright' 'lib_functions' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
+DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (REAL 8 0 0 0 REAL ()) 4 0 (5 6)
+() 3 () () () 0 0)
+7 'coef' 'lib_functions' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.c7c0186a774598@-4') () 0 () () () 0 0)
-7 'datan' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT UNKNOWN-PROC
-UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 7 ()
-() () 0 0)
 8 'dp' 'lib_functions' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.a3d70a3d70a3d8@-2') () 0 () () () 0 0)
@@ -49,7 +49,7 @@ DECL UNKNOWN 0 0 FUNCTION) (INTEGER 4 0 0 0 INTEGER ()) 21 0 (22) () 23
 () () () 0 0)
 24 'pi' 'lib_functions' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
-REAL 8 0 0 0 REAL ()) 0 '0.3243f6a8885a30@1') () 0 () () () 0 0)
+REAL 8 0 0 0 REAL ()) 0 '0.3243f6c0000000@1') () 0 () () () 0 0)
 25 'pla' 'lib_functions' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION IMPLICIT_PURE) (REAL 8 0 0 0 REAL ()) 26 0 (
 27 28) () 25 () () () 0 0)
@@ -58,7 +58,7 @@ UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.8507d2c7b890d8@1') () 0 () () () 0 0)
 30 'spi' 'lib_functions' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
-REAL 8 0 0 0 REAL ()) 0 '0.906eba8214db68@0') () 0 () () () 0 0)
+REAL 8 0 0 0 REAL ()) 0 '0.906eba8213d970@0') () 0 () () () 0 0)
 31 'tina' 'lib_functions' '' 1 ((PROCEDURE UNKNOWN-INTENT MODULE-PROC
 DECL UNKNOWN 0 0 FUNCTION) (REAL 8 0 0 0 REAL ()) 32 0 (33 34 35 36) ()
 31 () () () 0 0)
@@ -71,9 +71,9 @@ REAL 8 0 0 0 REAL ()) 0 '0.18f00000000000@3') () 0 () () () 0 0)
 43 'yl' 'lib_functions' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.295fad40a57eb6@-1') () 0 () () () 0 0)
-4 'f' '' '' 3 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY) (
+5 'f' '' '' 4 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY) (
 REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
-5 'r' '' '' 3 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY) (
+6 'r' '' '' 4 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY) (
 REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
 11 'f' '' '' 10 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY) (
 REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
@@ -112,7 +112,7 @@ DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 EXPLICIT (CONSTANT (INTEGER 4
 INTEGER ()) 0 '100')) 0 () () () 0 0)
 )
 
-('bright' 0 2 'coef' 0 6 'datan' 0 7 'dp' 0 8 'dpla' 0 9 'ds' 0 13 'dsqrt'
-0 14 'eint' 0 15 'hck' 0 18 'lib_functions' 0 19 'nb_line' 0 20 'pi' 0
-24 'pla' 0 25 'r' 0 29 'spi' 0 30 'tina' 0 31 'voigt' 0 37 'xl' 0 42 'yl'
-0 43)
+('__convert_r4_r8' 0 2 'bright' 0 3 'coef' 0 7 'dp' 0 8 'dpla' 0 9 'ds'
+0 13 'dsqrt' 0 14 'eint' 0 15 'hck' 0 18 'lib_functions' 0 19 'nb_line'
+0 20 'pi' 0 24 'pla' 0 25 'r' 0 29 'spi' 0 30 'tina' 0 31 'voigt' 0 37
+'xl' 0 42 'yl' 0 43)
