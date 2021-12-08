@@ -644,8 +644,8 @@ character(len=256), dimension(:), allocatable :: &
             end do
             if (nbl <= nlay) then
               do j = nbl+1, nlay
-                atmp_pl(j) = atmp_pl(j-1)+(dlog(1d-3))
-                atmp_aql(j) = atmp_aql(j-1)
+                atmp_pl(j) = atmp_pl(j-1)
+                atmp_aql(j) = atmp_aql(nbl)
               end do
             end if
             do j = 1, nlay
@@ -1501,22 +1501,6 @@ character(len=256), dimension(:), allocatable :: &
         end do
         close(12)
       end if
-      !----------------------------------------------------------------------------------------------------------------!
-      !--- Section 6.2: Calculate kernels for molecules                                                             ---!
-      !----------------------------------------------------------------------------------------------------------------!
-      open(unit=11, file=file_kernel, status='unknown')
-      do ifk = 1, nb_kernel
-        i = nint( (f_kernel(ifk) - f_start)/f_pas + 0.5 )
-        write(11,fmt='(20x,f10.3,a)')f_start+f_pas*(dfloat(i)-0.5d0), ' cm-1'
-        do ik = 1, nb_mol_inv
-          write(11,fmt='(28x,5(4x,a4,4x,48x))')name_mol_inv(ik)
-          do j = nlay, 1, -1
-            write(11,fmt='(f8.2,e13.5,f8.2,2x,*(e13.5))')0.5*(z(j)+z(j+1)), pl(j), tl(j), &
-                                                         (matrix_k(ik,j,is,i)/(ap(j)-ap(j+1))/rad(is,i), is=1, nb_obs)
-          end do
-        end do
-      end do
-      close(11)
       deallocate(c, c0)
     end if
   end do

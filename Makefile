@@ -9,6 +9,7 @@ DEBUG = -ffixed-line-length-none -mcmodel=large -Wall -free -fbounds-check -g -f
 PROD = -O3
 
 FLAG =$(PROD)
+
 libf = lib_fortran
 
 lib = lib_functions.o avg.o conv.o conv_wf.o dat_cont.o det_step.o dtau_e.o dtau_h.o dtau_v.o database_mol.o database_planet.o intwdl.o \
