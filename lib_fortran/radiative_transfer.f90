@@ -143,9 +143,13 @@ double precision :: qn = 0d0
 double precision :: qh = 0d0
 double precision :: v0 = 0d0
 double precision :: rlor = 0d0
-double precision :: time_begin = 0d0
-double precision :: time_end = 0d0
+integer :: time_begin = 0d0
+integer :: time_end = 0d0
+integer :: time_precision = 0d0
 double precision :: time_elapsed = 0d0
+double precision :: cpu_time_begin = 0d0
+double precision :: cpu_time_end = 0d0
+double precision :: cpu_time_elapsed = 0d0
 double precision :: f_xi = 0d0
 double precision :: f_mult = 0d0
 double precision :: f_cent = 0d0
@@ -210,7 +214,8 @@ double precision :: cut_off, wr, sr, er
 !~ *** BEGIN TRANSFER ***
 !~ =====================================================================
 
-call cpu_time(time_begin)
+call system_clock(count=time_begin, count_rate=time_precision)
+call cpu_time(cpu_time_begin)
 write(*,*)"Begin transfert"
 
 !$OMP PARALLEL DEFAULT(NONE) &
@@ -891,10 +896,14 @@ if(itrans > 0) then
 end if
 deallocate(f_out)
 
-call cpu_time(time_end)
-time_elapsed = time_end - time_begin
+call system_clock(count=time_end, count_rate=time_precision)
+time_elapsed = real(time_end - time_begin,kind=8)/real(time_precision,kind=8)
+
+call cpu_time(cpu_time_end)
+cpu_time_elapsed = cpu_time_end - cpu_time_begin
 write(*,*)'=================================='
-write(*,*)' Transfert takes :',time_elapsed,' s'
+write(*,*)' Transfert takes :', time_elapsed, ' s time.'
+write(*,*)' Transfert takes :', cpu_time_elapsed, ' s cpu time.'
 
 return
 end subroutine transfer_abundance

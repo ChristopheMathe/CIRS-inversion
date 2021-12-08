@@ -105,6 +105,9 @@ Program ABUNDANCE
       nx            = 0, & !size of invert spectral range
       n1            = 0, & !start index to extracting collisions data
       n2            = 0, & !end index to extracting collisions data
+      time_begin    = 0.0d0, & !begin of the program (seconds)
+      time_end      = 0.0d0, & !end of the program (seconds)
+      time_precision= 0.0d0, & !time precision of the CPU (seconds)
       tmp_nlay      = 0, & !temporary nlay when atm grid is redefined
       tmp_nlev      = 0, & !temporary nlev when atm grid is redefined
       mode_inversion = 0   ! 0 = calcul direct, 1 = inversion molecule, 2 = inversion molecule + temperature
@@ -175,9 +178,10 @@ double precision :: &
     r2                 = 0.0d0, & !radii 2
     r3                 = 0.0d0, & !radii 3
     r_1bar             = 0.0d0, & !radii at 1 bar level
-    time_begin         = 0.0d0, & !begin of the program (seconds)
     time_elapsed       = 0.0d0, & !time spend of the program (seconds)
-    time_end           = 0.0d0, & !end of the program (seconds)
+    cpu_time_begin     = 0.0d0, & !begin of the program (seconds CPU)
+    cpu_time_elapsed   = 0.0d0, & !time spend of the program (seconds CPU)
+    cpu_time_end       = 0.0d0, & !end of the program (seconds CPU)
     tra                = 0.0d0, & !trace of absorbers
     t_1bar             = 0.0d0, & !temperature at 1 bar level
     vmr_tropo_n2       = 0.0d0, & !N2 volume mixing ratio in troposphere
@@ -371,7 +375,8 @@ character(len=256), dimension(:), allocatable :: &
   !====================================================================================================================!
   !=== BEGIN PROGRAM                                                                                                ===!
   !====================================================================================================================!
-  call CPU_TIME(time_begin)
+  call system_clock(count=time_begin, count_rate=time_precision)
+  call CPU_TIME(cpu_time_begin)
   write(*,*)"============================================================"
   write(*,*)"BEGIN PROGRAM ABUNDANCE"
   write(*,*)"============================================================"
@@ -1513,9 +1518,12 @@ character(len=256), dimension(:), allocatable :: &
 !======================================================================================================================!
 !=== END PROGRAM                                                                                                    ===!
 !======================================================================================================================!
-call cpu_time(time_end)
+call system_clock(count=time_end, count_rate=time_precision)
+call cpu_time(cpu_time_end)
 time_elapsed = time_end - time_begin
+cpu_time_elapsed = cpu_time_end - cpu_time_begin
 write(*,*)'=================================================='
-write(*,*)'Program takes :',time_elapsed,' s'
+write(*,*)'Program takes :', time_elapsed, ' s time.'
+write(*,*)'Program takes :', cpu_time_elapsed, ' s cpu time.'
 
 end program ABUNDANCE
