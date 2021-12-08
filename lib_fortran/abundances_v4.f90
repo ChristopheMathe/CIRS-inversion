@@ -633,7 +633,7 @@ character(len=256), dimension(:), allocatable :: &
   !$OMP DO SCHEDULE(STATIC)
   do ik = 1, nb_mol
     !$ ithread = OMP_GET_THREAD_NUM()
-    !$ unit = 10 + ithread + ik
+    !$ unit = 10 * ithread + ik
     write(*,*)'----------------------------------'
     write(*,*)trim(NAME_MOL(ik,1)), ': ', trim(file_spectro(ik))
     select case (NAME_MOL(ik,2))
