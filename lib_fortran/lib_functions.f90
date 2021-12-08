@@ -94,7 +94,7 @@ integer :: id
 character(*), intent(in) :: filename
 
 ios1 = 0
-open(unit=id, file=filename, status='old', action='read', iostat=ios1)
+open(newunit=id, file=filename, status='old', action='read', iostat=ios1)
 if  (ios1.ne.0) then
       print *, 'Probleme avec le fichier ', filename
       stop
