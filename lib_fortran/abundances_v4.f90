@@ -630,7 +630,7 @@ character(len=256), dimension(:), allocatable :: &
   write(*,*)""
   allocate(ql(nlay,0:nb_mol))
   !$OMP PARALLEL PRIVATE(tmp_pl, tmp_aql, atmp_pl, atmp_aql, unit, ithread,  nbl)
-  !$OMP DO SCHEDULE(STATIC)
+  !$OMP DO SCHEDULE(RUNTIME)
   do ik = 1, nb_mol
     !$ ithread = OMP_GET_THREAD_NUM()
     !$ unit = 10 * ithread + ik
