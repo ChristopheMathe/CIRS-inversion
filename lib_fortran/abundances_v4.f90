@@ -1520,7 +1520,7 @@ character(len=256), dimension(:), allocatable :: &
 !======================================================================================================================!
 call system_clock(count=time_end, count_rate=time_precision)
 call cpu_time(cpu_time_end)
-time_elapsed = time_end - time_begin
+time_elapsed = real(time_end - time_begin,kind=8)/real(time_precision,kind=8)
 cpu_time_elapsed = cpu_time_end - cpu_time_begin
 write(*,*)'=================================================='
 write(*,*)'Program takes :', time_elapsed, ' s time.'
